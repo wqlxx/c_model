@@ -1,6 +1,6 @@
 struct sys_aclqos_flag_s
 {
-  uint32 discard:1,
+	uint32 discard:1,
 		deny_replace_cos:1,
 		deny_replace_dscp:1,
 		deny_bridge:1,
@@ -23,7 +23,7 @@ struct sys_aclqos_flag_s
 		pbr_copy_to_cpu:1,
 		pbr_deny:1,
 		rsv:10;
-}
+};
 typedef struct sys_aclqos_flag_s sys_aclqos_flag_t;
 
 struct sys_aclqos_action_s
@@ -58,7 +58,7 @@ struct sys_aclqos_action_s
 	uint16 pbr_vrfid;
 	uint8 pbr_ecpn;
 	uint8 rsv4;
-}
+};
 typedef struct sys_aclqos_action_s sys_aclqos_action_t;
 
 struct sys_aclqos_mac_key_flag_s
@@ -82,7 +82,7 @@ struct sys_aclqos_mac_key_flag_s
 		l3_qos_label:1,
 		is_glb_entry;1,
 		rsv:14;
-}
+};
 typedef struct sys_aclqos_mac_key_flag_s sys_aclqos_mac_key_flag_t;
 
 #define CTC_ETH_ADDR_LEN  6
@@ -119,7 +119,7 @@ struct sys_aclqos_mac_key_s
 		table_id1:4,
 		table_id2:4,
 		table_id3:4;							
-}
+};
 typedef struct sys_aclqos_mac_key_s sys_aclqos_mac_key_t;
 
 struct sys_aclqos_ipv4_key_flag_s
@@ -154,7 +154,7 @@ struct sys_aclqos_ipv4_key_flag_s
 		l3_qos_label:1,
 		is_glb_entry:1,
 		rsv:2;	
-}
+};
 typedef struct sys_aclqos_ipv4_key_flag_s sys_aclqos_ipv4_key_flag_t;
 
 struct sys_aclqos_ipv4_key_s
@@ -213,5 +213,146 @@ struct sys_aclqos_ipv4_key_s
 		table_id2:4,
 		table_id3:4,
 		rsv3;16;		
-}
+};
 typedef struct sys_aclqos_ipv4_key_s sys_aclqos_ipv4_key_t;
+
+enum ctc_aclqos_key_type_e
+{
+	CTC_ACLQOS_MAC_KEY = 0,
+	CTC_ACLQOS_IPV4_KEY
+};
+typedef enum ctc_aclqos_key_type_e ctc_aclqos_key_type_t;
+
+struct sys_aclqos_key_s
+{
+	ctc_aclqos_key_type_t type;
+
+	union
+	{
+		sys_aclqos_mac_key_t mac_key;
+		sys_aclqos_ipv4_key_t ipv4_key;
+	}key_info;
+};
+typedef struct sys_aclqos_key_s sys_aclqos_key_t;
+
+
+typedef struct ctc_list_pointer_node_s
+{
+	struct ctc_list_pointer_node_s* p_next;
+	struct ctc_list_pointer_node_s* p_prev;
+}ctc_list_pointer_node_t; 
+
+enum sys_aclqos_label_type_e
+{
+	SYS_PORT_ACL_LABEL,
+	SYS_VLAN_ACL_LABEL,
+	SYS_PBR_ACL_LABEL,
+	SYS_PORT_QOS_LABEL,
+	SYS_VLAN_QOS_LABEL,
+	SYS_SERVICE_ACLQOS_LABEL,
+	
+	MAX_SYS_ACLQOS_LABEL
+};
+typedef enum sys_aclqos_label_type_e sys_aclqos_label_type_t;
+
+struct sys_aclqos_label_s
+{
+	uint32 id;
+	sys_aclqos_label_index_t *p_index[CTC_MAX_LOCAL_CHIP_NUM];// CTC_MAX_LOCAL_CHIP_NUM = 2
+	
+	uint8 type;/* SYS_XXX_LABEL*/
+	uint8 dir;
+	uint8 ref;
+};
+typedef struct sys_aclqos_label_s sys_aclqos_label_t;
+
+struct sys_aclqos_entry_s
+{
+	ctc_list_pointer_node_t head;//double direction link
+
+	uint32 entry_id;
+	
+	sys_aclqos_action_t action;
+	sys_aclqos_key_t key;
+	
+	uint16 block_index;
+	void *p_label;/*sys_aclqos_label_t*/
+};
+typedef struct sys_aclqos_entry_s sys_aclqos_entry_t;
+typedef struct sys_aclqos_entry_s sys_acl_entry_t;
+
+struct sys_aclqos_global_entryid_list_s
+{
+	ctc_list_pointer_node_t head;
+	sys_aclqos_entry_t *p_entry;
+};
+typedef struct sys_aclqos_global_entryid_list_s sys_aclqos_global_entryid_list_t;
+
+struct sys_acl_block_s
+{
+	uint8 block_number;/*physical block 0~48?
+	uint8 block_type;/*mac/ipv4*/
+	uint16 entry_count;/*entry count on each block, 512, uint16 is enough*/
+	uint16 entry_dft_cnt;
+	uint16 entry_dft_max;
+	uint16 free_count;
+	sys_aclqos_entry_t **entries;
+	uint8 lchip;
+	uint16 after_0_cnt;//entry count < SYS_REMEMBER_BASE
+	uint16 after_1_cnt;
+}
+typedef struct sys_acl_block_s sys_acl_block_t;
+	
+#define SYS_ACL_ASIC_TYPE_MAX 2
+
+struct ctc_hash_backet_s
+{
+	struct ctc_hash_backet_s *next;
+	
+	uint32 key;
+	
+	void *data;
+};
+typedef struct ctc_hash_backet_s ctc_hash_backet_t;
+
+struct ctc_hash_s
+{
+	ctc_hash_backet_t ***index;
+
+	/* <Hash table size = block_size * block_num*/
+	
+	/* Hash table block num*/
+	uint16 block_num;
+
+	/* Hash table block size*/	
+	uint16 block_size;
+
+	/*current hash backet size*/
+	uint32 count;
+	
+	/* key make function*/
+	uint32 (*hash_key)(void* data);
+
+	/*data compare function*/
+	bool (*hash_cmp)(void* backet_data, void* data);
+{
+typedef struct ctc_hash_s ctc_hash_t;
+
+struct sys_aclqos_entry_ctl_s
+{
+	uint8 entry_sort_mode;
+	uint8 is_merge_mac_ip_key;
+	uint8 is_dual_aclqos_lookup;
+	uint8 disable_merge_mac_ip_key_physical;
+	uint16 mac_ipv4_acl_entry_num;
+	uint16 ipv6_acl_entry_num;
+	uint16 mac_ipv4_acl_entry_num;
+	uint32 acl_fwd_base;
+	uint32 global_aclqos_entry_head_num;
+	uint32 global_aclqos_entry_tail_num;
+	
+	ctc_hash_t* entry;
+	sys_acl_block_t block[SYS_ACL_ASIC_TYPE_MAX];// SYS_ACL_ASIC_TYPE_MAX = 2
+	uint8 asic_type[MAX_CTC_ACLQOS_KEY];
+};
+typedef struct sys_aclqos_entry_ctl_s sys_aclqos_entry_ctl_t;	
