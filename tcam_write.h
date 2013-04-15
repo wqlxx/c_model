@@ -216,6 +216,34 @@ struct sys_aclqos_ipv4_key_s
 };
 typedef struct sys_aclqos_ipv4_key_s sys_aclqos_ipv4_key_t;
 
+struct sys_aclqos_sub_entry_info_flag_s
+{
+	uint32 l4_src_port:1,
+		l4_dst_port:1,
+		frag_info:1,
+		ext_hdrL:1,
+		reset_l4info:1,
+		rsv:27;
+};
+typedef struct sys_aclqos_sub_entry_info_flag_s sys_aclqos_sub_entry_info_flag_t;
+
+struct sys_aclqos_sub_entry_info_s
+{
+	sys_aclqos_sub_entry_info_flag_t flag;
+	
+	uint16 l4_src_port;
+	uint16 l4_src_port_mask;
+	uint16 l4_dst_port;
+	uint16 l4_dst_port_mask;
+	uint8 frag_info;
+	uint8 frag_info_mask;
+	uint8 ext_hdr;
+	uint8 ext_hdr_mask;
+
+	uint32 offset;
+};
+typedef struct sys_aclqos_sub_entry_info_s sys_aclqos_sub_entry_info_t;
+
 enum ctc_aclqos_key_type_e
 {
 	CTC_ACLQOS_MAC_KEY = 0,
