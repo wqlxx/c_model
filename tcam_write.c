@@ -1012,6 +1012,201 @@ ERR:
 	
 	return ret;
 }		
+
+int32
+sys_humber_aclqos_entry_delete(uint32 label_id, ctc_aclqos_label_type_t label_type, ctc_aclqos_key_type_t entry_type, uint32 entry_id)
+{
+	sys_aclqos_label_t *p_label;
+	sys_aclqos_entry_t *p_entry;
+	uint8 lchip, lchip_num;
+	uint8 is_service_label = 0;
+	uint8 asic_type;
+	sys_acl_block_t *pb = NULL;
+	
+	if(CTC_SERVICE_LABEL == label_type)
+	{
+		is_service_label = 1;
+	}
+
+	CTC_ERROR_RETURN(sys_humber_aclqos_label_lookup(label_id, is_service_label, &p_label));
+	if(!p_label)
+	{
+		return CTC_E_ACLQOS_LABEL_NOT_EXIST);
+	}
+
+	if(CTC_QOS_LABEL == label_type)
+	{
+		if(IS_ACL_LABEL(p_label->type))
+			return CTC_E_ACLQOS_DIFFERENT_TYPE;
+	}else if(CTC_ACL_LABEL == label_type)
+	{	
+		if(IS_QOS_LABEL(p_label->type))
+			return CTC_E_ACLQOS_DIFFERENT_TYPE;				
+	}
+	
+	lchip_num = sys_humber_get_local_chip_num();
+	for(lchip = 0; lchip < lchip_num; lchip++)
+	{
+		if(!p_label->p_index[lchip])
+		{
+			continue;
+		}
 		
+		_sys_humber_acl_get_sys_entry_by_eid(entry_id, &p_entry);
+		if(!p_entry)
+		{
+			return CTC_E_ACLQOS_ENTRY_NOT_EXIST;
+		}
+
+	}
+
+	asic_type = acl_master->asic_type[p_entry->key.type];
+	pb = &acl_master->block[asic_type];
+
+	CTC_ERROR_RETURN(_sys_humber_aclqos_entry_remove(pb, p_entry));
+	if(pb->free_count == pb->entry_count)
+	{
+		pb->after_0_cnt = 0;
+		pb->after_1_cnt = 0;
+	}
+
+	return CTC_E_NONE;
+}
+
+int32
+sys_humber_aclqos_entry_delete_all(uint32 label_id, ctc_aclqos_label_type_t label_type, ctc_aclqos_key_type_t entry_type)
+{
+	sys_aclqos_label_t *p_label;
+	ctc_list_pointer_t *p_list;
+	ctc_list_pointer_node_t *p_node, *p_next_node;
+	sys_aclqos_entry_t *p_entry = NULL;
+	uint8 lchip, lchip_num;
+	uint8 is_service_label = 0;
+	uint8 asic_type;
+	sys_acl_block_t *pb = NULL;
+	
+	if(CTC_SERVICE_LABEL == label_type)
+	{
+		is_service_label = 1;
+	}
+
+	CTC_ERROR_RETURN(sys_humber_aclqos_label_lookup(label_id, is_service_label, &p_label));
+	if(!p_label)
+	{
+		return CTC_E_ACLQOS_LABEL_NOT_EXIST);
+	}	
+
+	if(CTC_QOS_LABEL == label_type)
+	{
+		if(IS_ACL_LABEL(p_label->type))
+			return CTC_E_ACLQOS_DIFFERENT_TYPE;
+	}else if(CTC_ACL_LABEL == label_type)
+	{	
+		if(IS_QOS_LABEL(p_label->type))
+			return CTC_E_ACLQOS_DIFFERENT_TYPE;				
+	}
+
+
+	asic_type = acl_master->asic_type[p_entry->key.type];
+	pb = &acl_master->block[asic_type];
+
+	lchip_num = sys_humber_get_local_chip_num();
+	for(lchip = 0; lchip < lchip_num; lchip++)
+	{
+		if(!p_label->p_index[lchip])
+		{
+			continue;
+		}
+
+		p_list = &(p_label->p_index[lchip]->entry_list[entry_type]);
+		CTC_LIST_POINTER_LOOP_DEL(p_node, p_next_node, p_list)
+		{
+			p_entry = _ctc_container_of(p_node, sys_aclqos_entry_t, head);
+	
+			CTC_ERROR_RETURN(_sys_humber_aclqos_entry_remove(pb, p_entry));			
+		}
+	}
+	return CTC_E_NONE;
+}
+
+int32
+sys_humber_aclqos_entry_action_add(uint32 label_id, ctc_aclqos_label_type_t label_type, ctc_aclqos_key_type_t entry_type, uint32 entry_id, ctc_aclqos_action_t *p_action)
+{
+	sys_aclqos_label_t *p_label;
+	sys_aclqos_entry_t *p_entry;
+	uint8 lchip, lchip_num;
+	uint32 cmd, tmp;
+	tbl_id_t action_tbl_id;
+	fld_id_t action_fld_id;
+	ctc_list_pointer_t *p_list;
+	ctc_list_pointer_node_t *p_node;
+	sys_aclqos_sub_entry_info_t *p_info;
+	uint8 is_service_label = 0;
+	sys_nh_offset_array_t offset_array;
+	uint16 pbr_vrfId = 0;
+	uint32 policer_ptr = 0;
+	uint32 ds_fwd_offset = 0;
+	uint32 ds_fwd_base = 0;
+	uint32 ds_fwd_offset_old = 0;
+	uint32 nhid_old = 0;
+	sys_aclqos_redirect_t acl_redirect;
+	sys_aclqos_redirect_t *p_acl_redirect = 0;
+	sys_humber_opf_t opf;
+	int32 ret = 0;
+	
+	kal_memset(&acl_redirect, 0, sizeof(acl_redirect));
+	kal_memeset(&opf, 0, sizeof(opf));
+	
+	CTC_PTR_VALID_CHECK(p_action);
+
+	if(CTC_SERVICE_LABEL == label_type)
+	{
+		is_service_label = 1;
+	}
+
+	CTC_ERROR_RETURN(sys_humber_aclqos_label_lookup(label_id, is_service_label, &p_label));
+	if(!p_label)
+	{
+		return CTC_E_ACLQOS_LABEL_NOT_EXIST;
+	}
+
+	if(CTC_QOS_LABEL == label_type)
+	{
+		if(IS_ACL_LABEL(p_label->type))
+			return CTC_E_ACLQOS_DIFFERENT_TYPE;
+	}else if(CTC_ACL_LABEL == label_type)
+	{	
+		if(IS_QOS_LABEL(p_label->type))
+			return CTC_E_ACLQOS_DIFFERENT_TYPE;				
+	}
+
+	lchip_num = sys_humber_get_local_chip_num();
+	for(lchip = 0; lchip < lchip_num; lchip++)
+	{
+		if(!p_label->p_index[lchip])
+		{
+			continue;
+		}
+		
+		_sys_humber_acl_get_sys_entry_by_eid(entry_id, &p_entry);
+		if(!p_entry)
+		{
+			return CTC_E_ACLQOS_ENTRY_NOT_EXIST;
+		}
+
+		if(p_action->flag & CTC_ACLQOS_ACTION_FLOW_POLICER_FLAG)
+		{
+			if(p_entry->action.flag.flow_policer)
+			{
+				sys_humber_qos_flow_policer_unbind(lchip, p_entry_action.policer_id);
+			}
+
+			//bind flow policer to chip
+			CTC_ERROR_RETURN(sys_humber_qos_flow_policer_bind(lchip, p_action->policer_id));	
+			CTC_ERROR_RETURN(sus_humber_qos_policer_index_get(lchip, p_action->policer_id, &policer_ptr));
+		
+			//write to chip
+			
+}
 
 
