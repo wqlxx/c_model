@@ -79,4 +79,40 @@ extern	int32 sram_model_reset(uint8 chip_id);
 extern cmodel_reg_info_t cmodel_regs_info[MAX_LOCAL_CHIP_NUM][MAX_REG_NUM];
 extern cmodel_tbl_info_t cmodel_tbls_info[MAC_LOCAL_CHIP_NUM][MAX_REG_NUM];
 
+struct fields_s
+{
+	uint32 len;
+	uint8 word_offset;
+	uint8 bit_offset;
+	char* field_nam;
+};
+typedef struct fields_s fields_t;
+
+/*table data structure*/
+struct tables_s
+{
+	uint32 hw_mask_base;
+	uint32 hw_data_base;
+	uint32 max_index_num;
+	
+	uint8 key_size;
+	uint8 entry_size;
+	uint8 num_fields;
+	fields_t *ptr_fields;
+};
+typedef struct tables_s tables_t;
+
+struct registers_s
+{
+	uint32 hw_data_base;
+	uint32 max_index_num;
+	uint16 entry_size;
+	uint8 num_fields;
+	fields_t *ptr_fields;
+};
+typedef struct registers_s registers_t; 
+
+registers_t drv_regs_list[MAX_REG_NUM];
+tables_t drv_tbls_list[MAX_TBL_NUM];
+
 #endif				
