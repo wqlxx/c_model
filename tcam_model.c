@@ -338,31 +338,32 @@ int32 tcam_model_lookup(uin8 chip_id, uint32 tbl_id, uin32 *data, uin32 *idx)
 		uint32 entry_num = i*(tbl->key_size/EACH_TCAM_ENTRY_SW_SIM_BYTES)
 				+ (tbl->hw_data_base - hw_data_base)/EACH_TCAM_ENTRY_SW_SIM_BYTES;
 		
-	/*check the tcam entry's Wbit*/
-	if(!(IS_BIT_SET(*(sw_vbit_base + entry_num/32), entry_num%32)))
-	{
-		continue;
-	}
-
-	/*compare key according to the word uint*/
-	for(j = 0; j < tbl->key_size/4; ++j)
-	{
-		uint32 mask = *(key_mask_base + i * tbl->key_size/4 + j);
-		uint32 data = *(key_data_base + i * tbl->key_size/4 + j);
-		uint32 key = *(data + j);
-
-		if((record & mask) != (key & mask))
+		/*check the tcam entry's Wbit*/
+		if(!(IS_BIT_SET(*(sw_vbit_base + entry_num/32), entry_num%32)))
 		{
-			break;
+			continue;
 		}
+
+		/*compare key according to the word uint*/
+		for(j = 0; j < tbl->key_size/4; ++j)
+		{
+			uint32 mask = *(key_mask_base + i * tbl->key_size/4 + j);
+			uint32 data = *(key_data_base + i * tbl->key_size/4 + j);
+			uint32 key = *(data + j);
+
+			if((record & mask) != (key & mask))
+			{
+				break;
+			}
 		
-		if(j == tbl->key_size/4 - 1)
-		{
-			*idx = (tbl->hw_data_base - hw_data_base)/EACH_TCAM_ENTRY_SW_SIM_BYTES	
-				+ i*(tbl->key_size/EACH_TCAM_ENTRY_SW_SIM_BYTES);
-			return DRV_E_NONE;
+			if(j == tbl->key_size/4 - 1)
+			{
+				*idx = (tbl->hw_data_base - hw_data_base)/EACH_TCAM_ENTRY_SW_SIM_BYTES	
+					+ i*(tbl->key_size/EACH_TCAM_ENTRY_SW_SIM_BYTES);
+				return DRV_E_NONE;
+			}
 		}
-	}
+	}//20130421 CHECK this symbol is right
 	*idx = 0xffffffff;
 	return DRV_E_NOT_FOUND;
 }

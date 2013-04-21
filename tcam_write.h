@@ -1,3 +1,24 @@
+#define SYS_ACL_REMEMBER_BASE 10
+#define SYS_ACL_INVALID_INDEX -1
+#define CTC_ACLQOS_ENTRY_ID_HEAD 0
+#define CTC_ACLQOS_ENTRY_ID_TAIL 0xffffffff
+
+
+struct sys_chip_master_s
+{
+	uint8 lchip_num;
+	uint8 resv;
+	uint8 g_chip_id[CTC_MAX_LOCAL_CHIP_NUM];
+};
+typedef struct sys_chip_master_s sys_chip_master_t;
+
+typedef struct
+{
+	uint16 t_idx;//target index
+	uint16 o_idx;//old index
+}_fpa_target_t;
+
+
 struct sys_aclqos_flag_s
 {
 	uint32 discard:1,
@@ -5,7 +26,7 @@ struct sys_aclqos_flag_s
 		deny_replace_dscp:1,
 		deny_bridge:1,
 		deny_learning:1,
-		deny_route;1,
+		deny_route:1,
 		stats:1,
 		flow_policer:1,
 		trust:1,
@@ -70,7 +91,7 @@ struct sys_aclqos_mac_key_flag_s
 		cvlan:1,
 		ctag_cos:1,
 		ctag_cfi:1,
-		svlan;1,
+		svlan:1,
 		stag_cos:1,
 		stag_cfi:1,
 		eth_type:1,
@@ -80,7 +101,7 @@ struct sys_aclqos_mac_key_flag_s
 		qos_type:1,
 		l2_qos_label:1,
 		l3_qos_label:1,
-		is_glb_entry;1,
+		is_glb_entry:1,
 		rsv:14;
 };
 typedef struct sys_aclqos_mac_key_flag_s sys_aclqos_mac_key_flag_t;
@@ -124,9 +145,9 @@ typedef struct sys_aclqos_mac_key_s sys_aclqos_mac_key_t;
 
 struct sys_aclqos_ipv4_key_flag_s
 {
-	uint32 ipda;1,
+	uint32 ipda:1,
 		ipsa:1,
-		l4info_mapped;1,
+		l4info_mapped:1,
 		is_application:1,
 		is_tcp:1,
 		is_udp:1,
@@ -328,7 +349,7 @@ struct sys_acl_block_s
 	uint8 lchip;
 	uint16 after_0_cnt;//entry count < SYS_REMEMBER_BASE
 	uint16 after_1_cnt;
-}
+};
 typedef struct sys_acl_block_s sys_acl_block_t;
 	
 #define SYS_ACL_ASIC_TYPE_MAX 2
@@ -363,7 +384,7 @@ struct ctc_hash_s
 
 	/*data compare function*/
 	bool (*hash_cmp)(void* backet_data, void* data);
-{
+};
 typedef struct ctc_hash_s ctc_hash_t;
 
 struct sys_aclqos_entry_ctl_s

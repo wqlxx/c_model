@@ -206,7 +206,7 @@ int32 sram_model_release(uint8 chip_id)
 int32 sram_model_read(uint8 chip_id,
 			uint32 sw_model_addr,
 			uint32 *data,
-			int32 len);
+			int32 len)
 {
 	/*cmodel only support up to 2 same chip*/
 	SRAM_CHIP_ID_VALID_CHECK(chip_id);
@@ -222,7 +222,7 @@ int32 sram_model_read(uint8 chip_id,
 int32 sram_model_write(uint8 chip_id,
 			uint32 sw_model_addr,
 			uint32 *data,
-			int32 len);	
+			int32 len)
 {
 	/*cmodel only support up to 2 same chip*/
 	SRAM_CHIP_ID_VALID_CHECK(chip_id);

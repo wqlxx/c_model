@@ -135,7 +135,7 @@ drv_tbl_ioctl(uint8 chip_id, int32 index, uint32 cmd, void* val)
 }
 
 extern int32
-drv_reg_ioctl(uint8 chip_id, int32 index, uint32 cmd, void* val);
+drv_reg_ioctl(uint8 chip_id, int32 index, uint32 cmd, void* val)
 {
 	int32 action;
 	tbl_id_t tbl_id;
@@ -196,7 +196,8 @@ drv_reg_ioctl(uint8 chip_id, int32 index, uint32 cmd, void* val);
 				}
 				DRV_IF_ERROR_RETURN(drv_io_api[chip_id].drv_sram_reg_entry_to_ds(reg_id, entry, val));
 				break;
-				
+		}
+	}			
 }
 
 

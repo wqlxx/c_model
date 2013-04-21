@@ -1,7 +1,15 @@
 #include "tcam_write.h"
 
-#define DO_REORDER(move_num, all) ((move_num) >= ((all)/g_sys_humber_acl_reorder_ratio))
 uint16 g_sys_humber_acl_reorder_ratio = 100;
+#define DO_REORDER(move_num, all) ((move_num) >= ((all)/g_sys_humber_acl_reorder_ratio))
+
+
+static sys_aclqos_entry_ctl_t sys_aclqos_entry_ctl;
+static ctc_hash_t *p_sys_acl_redirect_hash[MAX_LOCAL_CHIP_NUM];
+static sys_aclqos_entry_ctl_t *acl_master = &sys_aclqos_entry_ctl;
+
+static sys_chip_master_t *p_chip_master = NULL;
+
 	
 /*brief acl global entry hash key hook*/
 static inline uint32 
@@ -34,7 +42,6 @@ _sys_humber_acl_get_sys_entry_by_eid(uint32 eid, sys_acl_entry_t **sys_entry_out
 	sys_acl_entry_t sys_entry;
 	
 	CTC_PTR_VALID_CHECK(sys_entry_out);
-	SYS_ACL_DBG_FUNC();
 
 	memset(&sys_entry, 0, sizeof(sys_acl_entry_t));
 	sys_entry.entry_id = eid;
@@ -52,7 +59,6 @@ _sys_humber_acl_entry_move_hw(sys_acl_entry_t *pe, int32 tcam_idx_new)
 	sys_aclqos_sub_entry_info_t sub_info;
 	
 	CTC_PTR_VALID_CHECK(pe);
-	SYS_ACL_DBG_FUNC();
 	
 	/*add first*/
 	memset(&sub_info, 0, sizeof(sub_info));
@@ -78,14 +84,12 @@ _sys_humber_acl_entry_move(sys_acl_entry_t* pe, int32 amount)
 	
 	uint8 asic_type;
 	
-	SYS_ACL_DBG_FUNC();
 	CTC_PTR_VALID_CHECK(pe);
 	
 	asic_type = acl_master->asic_type[pe->key.type];
 	pb = &acl_master->block[asic_type];
 	if(amount == 0)
 	{
-		SYS_ACL_DBG_INFO("amount == 0\m");
 		return(CTC_E_NONE);
 	}
 
@@ -110,7 +114,6 @@ _sys_humber_acl_entry_shift_up(sys_acl_block_t* pb, int32 target_index, int32 pr
 	int32 temp;
 	
 	CTC_PTR_VALID_CHECK(pb);
-	SYS_ACL_DBG_FUNC();
 	
 	temp = prev_null_index;
 	/*start from prev - 1
@@ -146,12 +149,6 @@ _sys_humber_acl_entry_shift_down(sys_acl_entry_t* pb, int32 target_index, int32 
 	}
 	return CTC_E_NONE;	
 }
-
-typedef struct
-{
-	uint16 t_idx;//target index
-	uint16 o_idx;//old index
-}_fpa_target_t;
 
 static int32
 _sys_humber_acl_reorder(sys_acl_block_t* pb, int32 bottom_index, uint8 extra_num)
@@ -345,9 +342,6 @@ _sys_humber_acl_shift_all_entries_up(sys_acl_block_t* pb)
 	return CTC_E_NONE;
 }
 
-#define SYS_ACL_REMEMBER_BASE 10
-#define CTC_ACLQOS_ENTRY_ID_HEAD 0
-#define CTC_ACLQOS_ENTRY_ID_TAIL 0xffffffff
 /*worst is bset*/
 static int32
 _sys_humber_acl_magic_reorder(sys_acl_block_t* pb, uint32 after_entry_id)
@@ -391,7 +385,7 @@ _sys_humber_acl_get_block_index(sys_acl_block_t *pb, uint32 after_entry_id, uint
 	int32 prev_null_idx = 0;
 	int32 next_null_idx = 0;
 	int32 shift_up_amount = 0;
-	int32 shift_dowm_amounr = 0;
+	int32 shift_down_amount = 0;
 	int16 after_idx = 0;
 
 	CTC_PTR_VALID_CHECK(pb);
@@ -407,7 +401,7 @@ _sys_humber_acl_get_block_index(sys_acl_block_t *pb, uint32 after_entry_id, uint
 	_sys_humber_acl_magic_reorder(pb, after_entry_id);
 	if(after_entry_id == CTC_ACLQOS_ENTRY_ID_TAIL)
 	{
-		next_null_idx = SYS_ACl_INVALID_INDEX;
+		next_null_idx = SYS_ACL_INVALID_INDEX;
 		bottom_idx = pb->entry_count + pb->entry_dft_max - 1;
 		
 		for(idx = pb->entry_count; idx <= bottom_idx; idx++)
@@ -416,17 +410,17 @@ _sys_humber_acl_get_block_index(sys_acl_block_t *pb, uint32 after_entry_id, uint
 			{
 				next_null_idx = idx;
 				break;
-			{
-		{
+			}
+		}
 		target_idx = next_null_idx;	
 		pb->entry_dft_cnt++;
 	}else if(pb->entry_count == pb->free_count){
 		target_idx = pb->entry_count - 1;
 	}
-	else if(after_entry_idx == CTC_ACLQOS_ENTRY_ID_HEAD)
+	else if(after_entry_id == CTC_ACLQOS_ENTRY_ID_HEAD)
 	{
 		/*get last not null index*/
-		first_entry_index = SYS_ACL_INVALID_INDEX;	
+		first_entry_idx = SYS_ACL_INVALID_INDEX;	
 		for( idx = 0; idx < pb->entry_count; idx++)
 		{
 			if(pb->entries[idx] != NULL)
@@ -455,7 +449,7 @@ _sys_humber_acl_get_block_index(sys_acl_block_t *pb, uint32 after_entry_id, uint
 		
 			CTC_ERROR_RETURN(_sys_humber_acl_entry_shift_down(pb, target_idx, next_null_idx));
 			*shift_amount = shift_down_amount;
-		}eles{
+		}else{
 			target_idx = first_entry_idx - 1;
 		}
 	}else{
@@ -510,11 +504,8 @@ _sys_humber_acl_get_block_index(sys_acl_block_t *pb, uint32 after_entry_id, uint
 	}
 	*block_index = target_idx;
 	return CTC_E_NONE;
-}	
+			}
 
-static sys_aclqos_entry_ctl_t sys_aclqos_entry_ctl;
-static ctc_hash_t *p_sys_acl_redirect_hash[CTC_MAX_LOCAL_CHIP_NUM];
-static sys_aclqos_entry_ctl_t *acl_master = &sys_aclqos_entry_ctl;
 
 void*
 ctc_hash_lookup(ctc_hash_t* hash, void *data)
@@ -573,16 +564,6 @@ sys_humber_aclqos_label_lookup(uint32 lable_id, uint8 is_service_label, sys_aclq
 	
 	return CTC_E_NONE;
 }
-	
-struct sys_chip_master_s
-{
-	uint8 lchip_num;
-	uint8 resv;
-	uint8 g_chip_id[CTC_MAX_LOCAL_CHIP_NUM];
-}
-typedef struct sys_chip_master_s sys_chip_master_t;
-
-static sys_chip_master_t *p_chip_master = NULL;
 
 uint8
 sys_humber_get_local_chip_num(void)
@@ -1174,8 +1155,7 @@ sys_humber_aclqos_entry_action_add(uint32 label_id, ctc_aclqos_label_type_t labe
 	{
 		if(IS_ACL_LABEL(p_label->type))
 			return CTC_E_ACLQOS_DIFFERENT_TYPE;
-	}else if(CTC_ACL_LABEL == label_type)
-	{	
+	}else if(CTC_ACL_LABEL == label_type){	
 		if(IS_QOS_LABEL(p_label->type))
 			return CTC_E_ACLQOS_DIFFERENT_TYPE;				
 	}
@@ -1206,7 +1186,8 @@ sys_humber_aclqos_entry_action_add(uint32 label_id, ctc_aclqos_label_type_t labe
 			CTC_ERROR_RETURN(sus_humber_qos_policer_index_get(lchip, p_action->policer_id, &policer_ptr));
 		
 			//write to chip
-			
+		}
+	}
 }
 
 
